@@ -2,7 +2,7 @@ export const BANDS = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 12000];
 export const DEFAULT_PROFILE = {
   name: "Gentle",
   thresholds: [-8, -8, -9, -10, -11, -12, -14, -16, -17],
-  output: -3
+  output: -10
 };
 
 export function profileToGains(profile) {

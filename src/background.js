@@ -1,6 +1,14 @@
 const protectedTabs = new Set();
 
-chrome.runtime.onInstalled.addListener(() => chrome.storage.local.set({ protectedTabs: [] }));
+chrome.runtime.onInstalled.addListener(async details => {
+  await chrome.storage.local.set({ protectedTabs: [] });
+  if (details.reason === "install") {
+    const { onboarded } = await chrome.storage.local.get("onboarded");
+    if (!onboarded) {
+      chrome.tabs.create({ url: chrome.runtime.getURL("src/onboarding.html") });
+    }
+  }
+});
 
 async function ensureOffscreen() {
   const url = chrome.runtime.getURL("src/offscreen.html");
