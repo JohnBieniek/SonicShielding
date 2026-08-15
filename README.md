@@ -19,7 +19,7 @@ Browser security requires the user to enable each protected tab. Extensions cann
 3. Choose **Load unpacked** and select this repository folder.
 4. Open a tab that plays audio and select **Protect this tab** from the toolbar popup.
 
-Chrome internal pages and the Chrome Web Store cannot be captured.
+Chrome and Brave internal pages, along with extension-store pages, cannot be captured.
 
 ## Verify and package
 

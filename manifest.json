@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SonicShielding",
-  "version": "0.1.0",
+  "version": "0.1.21",
   "description": "Softens sudden and frequency-sensitive audio in protected browser tabs.",
   "minimum_chrome_version": "116",
   "permissions": ["tabCapture", "offscreen", "storage", "tabs"],

@@ -1,6 +1,6 @@
 {
   "name": "sonic-shielding",
-  "version": "0.1.0",
+  "version": "0.1.21",
   "private": true,
   "type": "module",
   "scripts": { "test": "node --test", "package": "powershell -NoProfile -File scripts/package.ps1" },

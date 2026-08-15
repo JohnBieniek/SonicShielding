@@ -10,37 +10,71 @@ chrome.runtime.onInstalled.addListener(async details => {
   }
 });
 
-async function ensureOffscreen() {
+async function hasOffscreen() {
   const url = chrome.runtime.getURL("src/offscreen.html");
-  const contexts = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"], documentUrls: [url] });
-  if (!contexts.length) {
+  if (typeof chrome.runtime.getContexts === "function") {
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"], documentUrls: [url] });
+    return contexts.length > 0;
+  }
+  if (typeof chrome.offscreen?.hasDocument === "function") return chrome.offscreen.hasDocument();
+  return false;
+}
+
+async function ensureOffscreen() {
+  if (!await hasOffscreen()) {
     await chrome.offscreen.createDocument({ url: "src/offscreen.html", reasons: ["USER_MEDIA"], justification: "Process audio from user-selected tabs locally." });
+  }
+}
+
+async function isAudioActive(tabId) {
+  if (!await hasOffscreen()) return false;
+  try {
+    const result = await chrome.runtime.sendMessage({ type: "audio-status", tabId });
+    return result?.enabled === true;
+  } catch {
+    return false;
   }
 }
 
 async function updateState(tabId, enabled) {
   enabled ? protectedTabs.add(tabId) : protectedTabs.delete(tabId);
   await chrome.storage.local.set({ protectedTabs: [...protectedTabs] });
-  await chrome.action.setBadgeText({ tabId, text: enabled ? "ON" : "" });
-  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#18b7aa" });
+  const iconName = enabled ? "icon" : "icon-inactive";
+  await chrome.action.setIcon({
+    tabId,
+    path: {
+      16: chrome.runtime.getURL(`icons/${iconName}-16.png`),
+      32: chrome.runtime.getURL(`icons/${iconName}-32.png`),
+      48: chrome.runtime.getURL(`icons/${iconName}-48.png`),
+      128: chrome.runtime.getURL(`icons/${iconName}-128.png`)
+    }
+  });
+  await chrome.action.setBadgeText({ tabId, text: "" });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "status") {
-    sendResponse({ enabled: protectedTabs.has(message.tabId) });
-    return;
+    (async () => {
+      const enabled = await isAudioActive(message.tabId);
+      await updateState(message.tabId, enabled);
+      sendResponse({ enabled });
+    })().catch(error => sendResponse({ error: error.message }));
+    return true;
   }
   if (message.type === "toggle") {
     (async () => {
       const tabId = message.tabId;
-      if (protectedTabs.has(tabId)) {
-        await ensureOffscreen();
-        await chrome.runtime.sendMessage({ type: "stop", tabId });
+      const enabled = await isAudioActive(tabId);
+      if (enabled) {
+        const result = await chrome.runtime.sendMessage({ type: "stop", tabId });
+        if (result?.error) throw new Error(result.error);
         await updateState(tabId, false);
       } else {
         await ensureOffscreen();
         const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-        await chrome.runtime.sendMessage({ type: "start", tabId, streamId });
+        const { profile } = await chrome.storage.local.get("profile");
+        const result = await chrome.runtime.sendMessage({ type: "start", tabId, streamId, profile });
+        if (result?.error) throw new Error(result.error);
         await updateState(tabId, true);
       }
       sendResponse({ enabled: protectedTabs.has(tabId) });
@@ -53,4 +87,12 @@ chrome.tabs.onRemoved.addListener(async tabId => {
   if (!protectedTabs.has(tabId)) return;
   try { await chrome.runtime.sendMessage({ type: "stop", tabId }); } catch {}
   await updateState(tabId, false);
+});
+
+chrome.tabCapture.onStatusChanged.addListener(info => {
+  if (info.status === "active") {
+    updateState(info.tabId, true).catch(() => {});
+  } else if (info.status === "stopped" || info.status === "error") {
+    updateState(info.tabId, false).catch(() => {});
+  }
 });

@@ -13,4 +13,7 @@ button.danger { background: #ffd6d1; color: #5c1711; }
 .status { padding: 10px 12px; border-radius: 10px; background: #071b35; margin-bottom: 12px; }
 .row { display: grid; grid-template-columns: 90px 1fr 62px; align-items: center; gap: 12px; margin: 12px 0; }
 input[type=range] { width: 100%; accent-color: #36d7ca; }
+.check { display: flex; align-items: center; gap: 8px; margin: 16px 0; }
+.check input { width: 18px; height: 18px; accent-color: #36d7ca; }
+[hidden] { display: none !important; }
 .warning { border-left: 4px solid #f1c66b; padding-left: 12px; }

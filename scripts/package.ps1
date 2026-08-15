@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $root "dist"
-$zip = Join-Path $dist "SonicShielding-v0.1.0.zip"
+$manifest = Get-Content (Join-Path $root "manifest.json") -Raw | ConvertFrom-Json
+$zip = Join-Path $dist "SonicShielding-v$($manifest.version).zip"
 New-Item -ItemType Directory -Force $dist | Out-Null
 if (Test-Path $zip) { Remove-Item -LiteralPath $zip }
 $items = @("manifest.json", "src", "icons", "README.md", "PRIVACY.md") | ForEach-Object { Join-Path $root $_ }
