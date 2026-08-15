@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SonicShielding comfort profile</title><link rel="stylesheet" href="styles.css"></head><body><main>
+  <div class="brand"><img src="../icons/icon-128.png" alt=""><div><h1>Comfort profile</h1><div class="muted">Personalize how strongly frequencies are softened</div></div></div>
+  <section class="card warning"><strong>Use care with sound.</strong> This is a comfort tool, not a medical or hearing test. Set your device to its usual volume, begin low, and stop immediately if uncomfortable.</section>
+  <section class="card"><h2>Sound tester</h2><p class="muted">Choose a frequency, then hold “Play gentle tone.” The tone stops when released or when you press Escape.</p><div id="bands"></div><button id="play">Hold to play gentle tone</button><button id="stop" class="danger secondary">Stop all sound</button></section>
+  <section class="card"><h2>Output ceiling</h2><div class="row"><label>All audio</label><input id="output" type="range" min="-18" max="0" step="1"><output id="outputValue"></output></div><button id="save">Save comfort profile</button><p id="saved" class="muted"></p></section>
+  <script type="module" src="options.js"></script>
+</main></body></html>
