@@ -89,6 +89,16 @@ chrome.tabs.onRemoved.addListener(async tabId => {
   await updateState(tabId, false);
 });
 
+chrome.tabs.onCreated.addListener(tab => {
+  if (tab.id !== undefined) updateState(tab.id, false).catch(() => {});
+});
+
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  isAudioActive(tabId)
+    .then(enabled => updateState(tabId, enabled))
+    .catch(() => updateState(tabId, false).catch(() => {}));
+});
+
 chrome.tabCapture.onStatusChanged.addListener(info => {
   if (info.status === "active") {
     updateState(info.tabId, true).catch(() => {});
