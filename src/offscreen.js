@@ -1,105 +1,93 @@
-import { BANDS, BAND_RANGES, DEFAULT_PROFILE, frequenciesForRange, levelToDecibels, normalizeProfile, reductionToFilterSettings, reductionToLinearGain } from "./shared.js";
+import { DEFAULT_PROFILE, normalizeProfile } from "./shared.js";
 
 const sessions = new Map();
+const IDLE_RELEASE_DELAY = 5000;
 
-async function start(tabId, streamId, storedProfile) {
+function buildGraph(session) {
+  if (session.processor) return;
+  const processor = new AudioWorkletNode(session.context, "sonic-shield-processor", {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    channelCount: 2,
+    channelCountMode: "max"
+  });
+  processor.port.postMessage({ type: "profile", profile: session.profile });
+  session.source.connect(processor).connect(session.context.destination);
+  session.processor = processor;
+}
+
+function destroyGraph(session) {
+  if (!session.processor) return;
+  session.source.disconnect();
+  session.processor.disconnect();
+  session.processor.port.close();
+  session.processor = null;
+}
+
+async function setAudible(tabId, audible) {
+  const session = sessions.get(tabId);
+  if (!session) return;
+  clearTimeout(session.idleTimer);
+  session.idleTimer = null;
+  if (audible) {
+    buildGraph(session);
+    if (session.context.state === "suspended") await session.context.resume();
+    return;
+  }
+  session.idleTimer = setTimeout(async () => {
+    session.idleTimer = null;
+    if (!sessions.has(tabId) || session.context.state === "closed") return;
+    await session.context.suspend();
+    destroyGraph(session);
+  }, IDLE_RELEASE_DELAY);
+}
+
+async function start(tabId, streamId, storedProfile, audible) {
   if (sessions.has(tabId)) return;
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } }, video: false });
   const context = new AudioContext({ latencyHint: "interactive" });
-  const source = context.createMediaStreamSource(stream);
-  const profile = normalizeProfile(storedProfile || DEFAULT_PROFILE);
-  let node = source;
-  const filters = [];
-
-  // Parallel peaking filters approximate a personalized comfort curve without recording audio.
-  for (const [index] of BANDS.entries()) {
-    const settings = reductionToFilterSettings(profile.thresholds[index]);
-    const bandFilters = frequenciesForRange(BAND_RANGES[index]).map(frequency => {
-      const filter = context.createBiquadFilter();
-      filter.frequency.value = frequency;
-      filter.type = settings.type;
-      filter.Q.value = settings.q;
-      filter.gain.value = settings.gain;
-      node.connect(filter);
-      node = filter;
-      return filter;
-    });
-    filters.push(bandFilters);
-  }
-
-  const limiter = context.createDynamicsCompressor();
-  limiter.threshold.value = levelToDecibels(profile.cap);
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.1;
-  const output = context.createGain();
-  output.gain.value = reductionToLinearGain(profile.output);
-  node.connect(limiter).connect(output).connect(context.destination);
-  sessions.set(tabId, { context, stream, source, filters, limiter, output });
+  await context.audioWorklet.addModule(chrome.runtime.getURL("src/shield-processor.js"));
+  const session = {
+    context,
+    stream,
+    source: context.createMediaStreamSource(stream),
+    profile: normalizeProfile(storedProfile || DEFAULT_PROFILE),
+    processor: null,
+    idleTimer: null
+  };
+  sessions.set(tabId, session);
+  if (audible) buildGraph(session);
+  else await context.suspend();
 }
 
 async function stop(tabId) {
   const session = sessions.get(tabId);
   if (!session) return;
   sessions.delete(tabId);
-  const { context, stream, source, filters, limiter, output } = session;
-
-  // Return the captured signal to unity before Chrome switches back to native tab audio.
-  // This avoids a muted or attenuated handoff when shielding is disabled.
-  if (context.state !== "closed") {
-    const now = context.currentTime;
-    for (const bandFilters of filters) {
-      for (const filter of bandFilters) {
-        filter.type = "peaking";
-        filter.gain.cancelScheduledValues(now);
-        filter.gain.setValueAtTime(filter.gain.value, now);
-        filter.gain.linearRampToValueAtTime(0, now + 0.04);
-      }
-    }
-    output.gain.cancelScheduledValues(now);
-    output.gain.setValueAtTime(output.gain.value, now);
-    output.gain.linearRampToValueAtTime(1, now + 0.04);
+  clearTimeout(session.idleTimer);
+  if (session.processor && session.context.state === "running") {
+    session.processor.port.postMessage({ type: "bypass" });
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-
-  stream.getTracks().forEach(track => track.stop());
-  source.disconnect();
-  filters.flat().forEach(filter => filter.disconnect());
-  limiter.disconnect();
-  output.disconnect();
-  if (context.state !== "closed") await context.close();
+  session.stream.getTracks().forEach(track => track.stop());
+  destroyGraph(session);
+  session.source.disconnect();
+  if (session.context.state !== "closed") await session.context.close();
 }
 
 function updateProfile(storedProfile) {
   const profile = normalizeProfile(storedProfile || DEFAULT_PROFILE);
-  for (const { context, filters, limiter, output } of sessions.values()) {
-    if (context.state === "closed") continue;
-    const now = context.currentTime;
-    filters.forEach((bandFilters, index) => {
-      const settings = reductionToFilterSettings(profile.thresholds[index]);
-      bandFilters.forEach(filter => {
-        filter.type = settings.type;
-        filter.Q.cancelScheduledValues(now);
-        filter.Q.setValueAtTime(filter.Q.value, now);
-        filter.Q.linearRampToValueAtTime(settings.q, now + 0.04);
-        filter.gain.cancelScheduledValues(now);
-        filter.gain.setValueAtTime(filter.gain.value, now);
-        filter.gain.linearRampToValueAtTime(settings.gain, now + 0.04);
-      });
-    });
-    output.gain.cancelScheduledValues(now);
-    output.gain.setValueAtTime(output.gain.value, now);
-    output.gain.linearRampToValueAtTime(reductionToLinearGain(profile.output), now + 0.04);
-    limiter.threshold.cancelScheduledValues(now);
-    limiter.threshold.setValueAtTime(limiter.threshold.value, now);
-    limiter.threshold.linearRampToValueAtTime(levelToDecibels(profile.cap), now + 0.04);
+  for (const session of sessions.values()) {
+    session.profile = profile;
+    session.processor?.port.postMessage({ type: "profile", profile });
   }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "audio-status") {
-    sendResponse({ enabled: sessions.has(message.tabId) });
+    const session = sessions.get(message.tabId);
+    sendResponse({ enabled: Boolean(session), idle: session?.processor === null });
     return;
   }
   if (message.type === "update-profile") {
@@ -107,7 +95,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
     return;
   }
-  if (message.type === "start") start(message.tabId, message.streamId, message.profile).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ error: error.message }));
+  if (message.type === "set-audible") setAudible(message.tabId, message.audible).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ error: error.message }));
+  if (message.type === "start") start(message.tabId, message.streamId, message.profile, message.audible).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ error: error.message }));
   if (message.type === "stop") stop(message.tabId).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ error: error.message }));
-  return message.type === "start" || message.type === "stop";
+  return message.type === "set-audible" || message.type === "start" || message.type === "stop";
 });

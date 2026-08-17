@@ -1,8 +1,8 @@
 {
   "name": "sonic-shielding",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test", "package": "powershell -NoProfile -File scripts/package.ps1" },
+  "scripts": { "test": "node --test", "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1" },
   "engines": { "node": ">=20" }
 }

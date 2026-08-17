@@ -73,7 +73,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await ensureOffscreen();
         const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
         const { profile } = await chrome.storage.local.get("profile");
-        const result = await chrome.runtime.sendMessage({ type: "start", tabId, streamId, profile });
+        const tab = await chrome.tabs.get(tabId);
+        const result = await chrome.runtime.sendMessage({ type: "start", tabId, streamId, profile, audible: tab.audible === true });
         if (result?.error) throw new Error(result.error);
         await updateState(tabId, true);
       }
@@ -97,6 +98,14 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
   isAudioActive(tabId)
     .then(enabled => updateState(tabId, enabled))
     .catch(() => updateState(tabId, false).catch(() => {}));
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (typeof changeInfo.audible !== "boolean") return;
+  isAudioActive(tabId).then(enabled => {
+    if (!enabled) return;
+    return chrome.runtime.sendMessage({ type: "set-audible", tabId, audible: changeInfo.audible });
+  }).catch(() => {});
 });
 
 chrome.tabCapture.onStatusChanged.addListener(info => {

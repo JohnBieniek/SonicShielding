@@ -1,53 +1,62 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BAND_RANGES, DEFAULT_PROFILE, formatFrequency, formatFrequencyRange, frequenciesForRange, levelToDecibels, normalizeProfile, profileToGains, reductionToFilterSettings, reductionToLinearGain } from "../src/shared.js";
+import { BAND_RANGES, DEFAULT_PROFILE, PROFILE_SCHEMA_VERSION, formatFrequency, formatFrequencyRange, normalizeProfile, reductionToLinearGain } from "../src/shared.js";
+import { DSP_CONFIG, findTonalPeaks } from "../src/dsp-config.js";
 
-test("formats frequency labels", () => {
-  assert.equal(formatFrequency(500), "500 Hz");
+test("formats frequency labels and ranges", () => {
   assert.equal(formatFrequency(4000), "4 kHz");
-});
-
-test("formats frequency controls as ranges", () => {
-  assert.equal(formatFrequencyRange(BAND_RANGES[0]), "45 Hz–90 Hz");
   assert.equal(formatFrequencyRange(BAND_RANGES[7]), "5.7 kHz–9.8 kHz");
 });
 
 test("turns reduction percentages into linear gain", () => {
   assert.equal(reductionToLinearGain(30), 0.7);
   assert.equal(reductionToLinearGain(100), 0);
-  assert.equal(reductionToLinearGain(120), 0);
 });
 
-test("defaults to the requested frequency reduction curve", () => {
-  assert.deepEqual(DEFAULT_PROFILE.thresholds, [0, 0, 0, 0, 97, 98, 99, 100, 100]);
-  assert.equal(DEFAULT_PROFILE.output, 0);
+test("v2 defaults pass audio without permanent EQ", () => {
+  assert.equal(DEFAULT_PROFILE.schemaVersion, PROFILE_SCHEMA_VERSION);
+  assert.equal(DEFAULT_PROFILE.protectionStrength, "balanced");
+  assert.equal(DEFAULT_PROFILE.preserveSpeech, true);
+  assert.equal(DEFAULT_PROFILE.comfortEqEnabled, false);
+  assert.deepEqual(DEFAULT_PROFILE.comfortEqReductions, [0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(DEFAULT_PROFILE.outputReduction, 0);
 });
 
-test("converts legacy negative slider values to percentages", () => {
-  const profile = normalizeProfile({ thresholds: [-30], output: -10 });
-  assert.equal(profile.thresholds[0], 30);
-  assert.equal(profile.output, 10);
+test("legacy reductions migrate into disabled optional comfort EQ", () => {
+  const profile = normalizeProfile({ thresholds: [-30, 98], output: -10, cap: 70 });
+  assert.equal(profile.schemaVersion, 2);
+  assert.deepEqual(profile.comfortEqReductions.slice(0, 2), [30, 98]);
+  assert.equal(profile.comfortEqEnabled, false);
+  assert.equal(profile.outputReduction, 10);
+  assert.equal(profile.suddenSoundLimit, 70);
 });
 
-test("converts percentages to the decibels required by equalizer filters", () => {
-  assert.ok(Math.abs(profileToGains({ thresholds: [50] })[0] + 6.0206) < 0.001);
+test("normalizes detector configuration", () => {
+  const profile = normalizeProfile({ schemaVersion: 2, protectionStrength: "invalid", detectionSensitivity: 200, maximumTonalReduction: 1, minimumProtectedFrequency: 9000, releaseDuration: 2 });
+  assert.equal(profile.protectionStrength, "balanced");
+  assert.equal(profile.detectionSensitivity, 100);
+  assert.equal(profile.maximumTonalReduction, 6);
+  assert.equal(profile.minimumProtectedFrequency, 5000);
+  assert.equal(profile.releaseDuration, 40);
 });
 
-test("converts a digital level cap for the limiter", () => {
-  assert.ok(Math.abs(levelToDecibels(50) + 6.0206) < 0.001);
-  assert.equal(levelToDecibels(0), -100);
-  assert.equal(normalizeProfile({}).cap, 100);
+test("detects a prominent 3 kHz spectral peak", () => {
+  const magnitudes = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(1);
+  const bin = Math.round(3000 * DSP_CONFIG.fftSize / 48000);
+  magnitudes[bin] = 20;
+  const peaks = findTonalPeaks(magnitudes, 48000, { minimumFrequency: 1500, sensitivity: 50, preserveSpeech: true });
+  assert.equal(peaks.length, 1);
+  assert.ok(Math.abs(peaks[0].frequency - 3000) < 50);
 });
 
-test("keeps deep frequency cuts narrow", () => {
-  assert.deepEqual(reductionToFilterSettings(100), { type: "notch", gain: 0, q: 4 });
-  assert.equal(reductionToFilterSettings(0).q, 4);
-  assert.ok(reductionToFilterSettings(99).q > 39.9);
+test("ignores broadband and quiet non-prominent spectra", () => {
+  const flat = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(4);
+  assert.deepEqual(findTonalPeaks(flat, 48000, { minimumFrequency: 1500 }), []);
 });
 
-test("spreads filters across each displayed range", () => {
-  const frequencies = frequenciesForRange(BAND_RANGES[7]);
-  assert.equal(frequencies.length, 3);
-  assert.ok(frequencies[0] > 5700);
-  assert.ok(frequencies[2] > 9000 && frequencies[2] < 9800);
+test("returns up to three simultaneous alert tones", () => {
+  const magnitudes = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(1);
+  for (const frequency of [2000, 4000, 6000, 8000]) magnitudes[Math.round(frequency * DSP_CONFIG.fftSize / 48000)] = 30;
+  const peaks = findTonalPeaks(magnitudes, 48000, { minimumFrequency: 1500, sensitivity: 70, preserveSpeech: false });
+  assert.equal(peaks.length, 3);
 });
