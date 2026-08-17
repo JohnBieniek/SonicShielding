@@ -1,15 +1,16 @@
 export const DSP_CONFIG = Object.freeze({
   fftSize: 1024,
   analysisHop: 256,
-  maximumNotches: 3,
+  maximumNotches: 6,
   maximumFrequency: 10000,
   baseProminenceDb: 12,
   consecutiveFrames: 2,
-  lookaheadMs: 24,
+  immediateProminenceDb: 18,
+  lookaheadMs: 40,
   attackMs: 4,
-  defaultReleaseMs: 80,
+  defaultReleaseMs: 110,
   minimumRms: 0.006,
-  notchQ: 18
+  notchQ: 8
 });
 
 export function findTonalPeaks(magnitudes, sampleRate, settings = {}) {

@@ -12,48 +12,48 @@ autosave.checked = stored.autoSave ?? true;
 saveButton.hidden = autosave.checked;
 
 const controls = {
-  strength: byId("strength"), suddenSoundLimit: byId("suddenLimit"), preserveSpeech: byId("preserveSpeech"),
-  detectionSensitivity: byId("sensitivity"), maximumTonalReduction: byId("tonalReduction"),
+  strength: byId("strength"), suddenSoundReductionPercent: byId("suddenSoundReduction"), preserveSpeech: byId("preserveSpeech"),
+  detectionSensitivity: byId("sensitivity"), maximumTonalReductionPercent: byId("tonalReduction"),
   minimumProtectedFrequency: byId("minimumFrequency"), releaseDuration: byId("releaseDuration"),
-  comfortEqEnabled: byId("comfortEqEnabled"), outputReduction: byId("outputReduction")
+  comfortEqEnabled: byId("comfortEqEnabled")
 };
 
 function renderValues() {
-  byId("suddenLimitValue").textContent = `${controls.suddenSoundLimit.value}% digital ceiling`;
+  byId("suddenSoundReductionValue").textContent = `${controls.suddenSoundReductionPercent.value}% reduced`;
   byId("sensitivityValue").textContent = `${controls.detectionSensitivity.value}%`;
-  byId("tonalReductionValue").textContent = `${controls.maximumTonalReduction.value} dB maximum`;
+  byId("tonalReductionValue").textContent = `${controls.maximumTonalReductionPercent.value}% reduced`;
   byId("minimumFrequencyValue").textContent = `${Number(controls.minimumProtectedFrequency.value) / 1000} kHz`;
-  byId("releaseDurationValue").textContent = `${controls.releaseDuration.value} ms`;
-  byId("outputReductionValue").textContent = `${controls.outputReduction.value}% reduced`;
+  byId("releaseDurationValue").textContent = `${controls.releaseDuration.value} ms after detection`;
 }
 
 function renderProfile() {
   controls.strength.value = profile.protectionStrength;
-  controls.suddenSoundLimit.value = profile.suddenSoundLimit;
+  controls.suddenSoundReductionPercent.value = profile.suddenSoundReductionPercent;
   controls.preserveSpeech.checked = profile.preserveSpeech;
   controls.detectionSensitivity.value = profile.detectionSensitivity;
-  controls.maximumTonalReduction.value = profile.maximumTonalReduction;
+  controls.maximumTonalReductionPercent.value = profile.maximumTonalReductionPercent;
   controls.minimumProtectedFrequency.value = profile.minimumProtectedFrequency;
   controls.releaseDuration.value = profile.releaseDuration;
   controls.comfortEqEnabled.checked = profile.comfortEqEnabled;
-  controls.outputReduction.value = profile.outputReduction;
   [...bands.querySelectorAll("input")].forEach((input, index) => { input.value = profile.comfortEqReductions[index]; input.nextElementSibling.textContent = `${input.value}% reduced`; });
   renderValues();
 }
 
 function currentProfile() {
   return normalizeProfile({
-    schemaVersion: 2,
+    schemaVersion: 6,
+    detectorRevision: 4,
+    comfortEqRevision: 1,
+    suddenSoundRevision: 1,
     protectionStrength: controls.strength.value,
-    suddenSoundLimit: controls.suddenSoundLimit.value,
+    suddenSoundReductionPercent: controls.suddenSoundReductionPercent.value,
     preserveSpeech: controls.preserveSpeech.checked,
     detectionSensitivity: controls.detectionSensitivity.value,
-    maximumTonalReduction: controls.maximumTonalReduction.value,
+    maximumTonalReductionPercent: controls.maximumTonalReductionPercent.value,
     minimumProtectedFrequency: controls.minimumProtectedFrequency.value,
     releaseDuration: controls.releaseDuration.value,
     comfortEqEnabled: controls.comfortEqEnabled.checked,
-    comfortEqReductions: [...bands.querySelectorAll("input")].map(input => input.value),
-    outputReduction: controls.outputReduction.value
+    comfortEqReductions: [...bands.querySelectorAll("input")].map(input => input.value)
   });
 }
 
@@ -84,7 +84,7 @@ Object.values(controls).forEach(control => control.addEventListener("input", sch
 controls.strength.addEventListener("change", () => {
   const preset = PROTECTION_PRESETS[controls.strength.value];
   controls.detectionSensitivity.value = preset.detectionSensitivity;
-  controls.maximumTonalReduction.value = preset.maximumTonalReduction;
+  controls.maximumTonalReductionPercent.value = preset.maximumTonalReductionPercent;
   scheduleAutosave();
 });
 autosave.addEventListener("change", async () => {

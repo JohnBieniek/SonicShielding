@@ -1,26 +1,31 @@
-export const PROFILE_SCHEMA_VERSION = 2;
+export const PROFILE_SCHEMA_VERSION = 6;
+export const DETECTOR_REVISION = 4;
+export const COMFORT_EQ_REVISION = 1;
+export const SUDDEN_SOUND_REVISION = 1;
 export const BANDS = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 12000];
 export const BAND_RANGES = [
   [45, 90], [90, 180], [180, 355], [355, 710], [710, 1400],
   [1400, 2800], [2800, 5700], [5700, 9800], [9800, 16000]
 ];
 export const PROTECTION_PRESETS = {
-  low: { detectionSensitivity: 35, maximumTonalReduction: 18 },
-  balanced: { detectionSensitivity: 50, maximumTonalReduction: 24 },
-  strong: { detectionSensitivity: 70, maximumTonalReduction: 30 }
+  low: { detectionSensitivity: 35, maximumTonalReductionPercent: 88 },
+  balanced: { detectionSensitivity: 50, maximumTonalReductionPercent: 94 },
+  strong: { detectionSensitivity: 95, maximumTonalReductionPercent: 99 }
 };
 export const DEFAULT_PROFILE = {
   schemaVersion: PROFILE_SCHEMA_VERSION,
-  protectionStrength: "balanced",
+  detectorRevision: DETECTOR_REVISION,
+  comfortEqRevision: COMFORT_EQ_REVISION,
+  suddenSoundRevision: SUDDEN_SOUND_REVISION,
+  protectionStrength: "strong",
   preserveSpeech: true,
-  suddenSoundLimit: 85,
-  detectionSensitivity: 50,
-  maximumTonalReduction: 24,
-  minimumProtectedFrequency: 1500,
-  releaseDuration: 80,
+  suddenSoundReductionPercent: 50,
+  detectionSensitivity: 95,
+  maximumTonalReductionPercent: 99,
+  minimumProtectedFrequency: 1000,
+  releaseDuration: 110,
   comfortEqEnabled: false,
-  comfortEqReductions: BANDS.map(() => 0),
-  outputReduction: 0
+  comfortEqReductions: [0, 0, 0, 0, 97, 98, 99, 100, 100]
 };
 
 export function clamp(value, minimum, maximum, fallback = minimum) {
@@ -38,23 +43,41 @@ export function levelToDecibels(level) {
 }
 
 export function normalizeProfile(profile = {}) {
-  const legacy = profile.schemaVersion !== PROFILE_SCHEMA_VERSION;
+  const legacyStaticProfile = !profile.schemaVersion || profile.schemaVersion < 2;
+  const legacyDetector = profile.detectorRevision !== DETECTOR_REVISION;
   const legacyReductions = profile.thresholds || [];
   const legacyReduction = value => clamp(Number(value) < 0 ? Math.abs(Number(value)) : value, 0, 100, 0);
-  const protectionStrength = Object.hasOwn(PROTECTION_PRESETS, profile.protectionStrength) ? profile.protectionStrength : "balanced";
+  const migratedTonalReduction = profile.detectorRevision === 2
+    ? (1 - Math.pow(10, -clamp(profile.maximumTonalReduction, 0, 72, 60) / 20)) * 100
+    : profile.maximumTonalReductionPercent;
+  const protectionStrength = !legacyDetector && Object.hasOwn(PROTECTION_PRESETS, profile.protectionStrength) ? profile.protectionStrength : DEFAULT_PROFILE.protectionStrength;
   const preset = PROTECTION_PRESETS[protectionStrength];
+  const migratedSuddenReduction = profile.suddenSoundReductionPercent ??
+    (profile.peakLevelCeiling !== undefined ? 100 - profile.peakLevelCeiling : undefined) ??
+    (profile.suddenSoundLimit !== undefined ? 100 - profile.suddenSoundLimit : undefined) ??
+    (profile.cap !== undefined ? 100 - profile.cap : undefined);
+  const keepExistingEq = profile.comfortEqRevision === COMFORT_EQ_REVISION || profile.comfortEqEnabled === true;
   return {
     schemaVersion: PROFILE_SCHEMA_VERSION,
+    detectorRevision: DETECTOR_REVISION,
+    comfortEqRevision: COMFORT_EQ_REVISION,
+    suddenSoundRevision: SUDDEN_SOUND_REVISION,
     protectionStrength,
     preserveSpeech: profile.preserveSpeech ?? true,
-    suddenSoundLimit: clamp(profile.suddenSoundLimit ?? profile.cap, 10, 100, DEFAULT_PROFILE.suddenSoundLimit),
-    detectionSensitivity: clamp(profile.detectionSensitivity, 0, 100, preset.detectionSensitivity),
-    maximumTonalReduction: clamp(profile.maximumTonalReduction, 6, 36, preset.maximumTonalReduction),
-    minimumProtectedFrequency: clamp(profile.minimumProtectedFrequency, 1000, 5000, DEFAULT_PROFILE.minimumProtectedFrequency),
-    releaseDuration: clamp(profile.releaseDuration, 40, 250, DEFAULT_PROFILE.releaseDuration),
-    comfortEqEnabled: legacy ? false : Boolean(profile.comfortEqEnabled),
-    comfortEqReductions: BANDS.map((_, index) => legacyReduction(profile.comfortEqReductions?.[index] ?? legacyReductions[index])),
-    outputReduction: legacyReduction(profile.outputReduction ?? profile.output)
+    suddenSoundReductionPercent: clamp(
+      profile.suddenSoundRevision === SUDDEN_SOUND_REVISION ? migratedSuddenReduction : DEFAULT_PROFILE.suddenSoundReductionPercent,
+      0,
+      90,
+      DEFAULT_PROFILE.suddenSoundReductionPercent
+    ),
+    detectionSensitivity: clamp(legacyDetector ? preset.detectionSensitivity : profile.detectionSensitivity, 0, 100, preset.detectionSensitivity),
+    maximumTonalReductionPercent: clamp(migratedTonalReduction, 0, 100, preset.maximumTonalReductionPercent),
+    minimumProtectedFrequency: clamp(legacyDetector ? DEFAULT_PROFILE.minimumProtectedFrequency : profile.minimumProtectedFrequency, 1000, 5000, DEFAULT_PROFILE.minimumProtectedFrequency),
+    releaseDuration: clamp(legacyDetector ? DEFAULT_PROFILE.releaseDuration : profile.releaseDuration, 40, 250, DEFAULT_PROFILE.releaseDuration),
+    comfortEqEnabled: legacyStaticProfile ? false : Boolean(profile.comfortEqEnabled),
+    comfortEqReductions: BANDS.map((_, index) => keepExistingEq
+      ? legacyReduction(profile.comfortEqReductions?.[index] ?? legacyReductions[index])
+      : DEFAULT_PROFILE.comfortEqReductions[index])
   };
 }
 

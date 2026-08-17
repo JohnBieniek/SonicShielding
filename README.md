@@ -6,8 +6,8 @@ Sonic Shielding is a Chrome and Brave extension that softens sudden and frequenc
 
 - Protect multiple selected tabs and keep protection active while switching tabs.
 - Detect prominent narrow beeps and harsh tones locally, then apply short-lived notches only where needed.
-- Limit sudden broadband peaks with a separate relative digital ceiling.
-- Preserve speech by default, with an optional permanent nine-band comfort EQ under Advanced settings.
+- Limit sudden broadband peaks with a separate peak-level ceiling expressed as a percentage of digital maximum.
+- Preserve speech by default, with an optional permanent nine-band comfort EQ in its own section.
 - Store the comfort profile locally.
 - Suspend and release processing resources when a protected tab is silent.
 

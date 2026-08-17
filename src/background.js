@@ -36,20 +36,41 @@ async function isAudioActive(tabId) {
   }
 }
 
+function setTabIcon(tabId, path) {
+  return new Promise(resolve => {
+    chrome.action.setIcon({ tabId, path }, () => {
+      // A tab can close between an event and this callback. Reading lastError
+      // prevents Brave from reporting that expected race as an unchecked error.
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
+}
+
+function clearTabBadge(tabId) {
+  return new Promise(resolve => {
+    chrome.action.setBadgeText({ tabId, text: "" }, () => {
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
+}
+
+async function persistProtectedTabs() {
+  await chrome.storage.local.set({ protectedTabs: [...protectedTabs] });
+}
+
 async function updateState(tabId, enabled) {
   enabled ? protectedTabs.add(tabId) : protectedTabs.delete(tabId);
-  await chrome.storage.local.set({ protectedTabs: [...protectedTabs] });
+  await persistProtectedTabs();
   const iconName = enabled ? "icon" : "icon-inactive";
-  await chrome.action.setIcon({
-    tabId,
-    path: {
-      16: chrome.runtime.getURL(`icons/${iconName}-16.png`),
-      32: chrome.runtime.getURL(`icons/${iconName}-32.png`),
-      48: chrome.runtime.getURL(`icons/${iconName}-48.png`),
-      128: chrome.runtime.getURL(`icons/${iconName}-128.png`)
-    }
+  await setTabIcon(tabId, {
+    16: chrome.runtime.getURL(`icons/${iconName}-16.png`),
+    32: chrome.runtime.getURL(`icons/${iconName}-32.png`),
+    48: chrome.runtime.getURL(`icons/${iconName}-48.png`),
+    128: chrome.runtime.getURL(`icons/${iconName}-128.png`)
   });
-  await chrome.action.setBadgeText({ tabId, text: "" });
+  await clearTabBadge(tabId);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -84,10 +105,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-chrome.tabs.onRemoved.addListener(async tabId => {
-  if (!protectedTabs.has(tabId)) return;
-  try { await chrome.runtime.sendMessage({ type: "stop", tabId }); } catch {}
-  await updateState(tabId, false);
+chrome.tabs.onRemoved.addListener(tabId => {
+  (async () => {
+    if (!protectedTabs.has(tabId)) return;
+    try { await chrome.runtime.sendMessage({ type: "stop", tabId }); } catch {}
+    protectedTabs.delete(tabId);
+    await persistProtectedTabs();
+  })().catch(() => {});
 });
 
 chrome.tabs.onCreated.addListener(tab => {

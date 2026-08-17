@@ -77,7 +77,7 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
     this.eq = [];
     this.limiterEnvelope = [0, 0];
     this.port.onmessage = event => {
-      if (event.data.type === "bypass") this.setProfile({ preserveSpeech: true, suddenSoundLimit: 100, detectionSensitivity: 0, maximumTonalReduction: 6, minimumProtectedFrequency: 5000, releaseDuration: 40, comfortEqEnabled: false, comfortEqReductions: [], outputReduction: 0 });
+      if (event.data.type === "bypass") this.setProfile({ preserveSpeech: true, suddenSoundReductionPercent: 0, detectionSensitivity: 0, maximumTonalReductionPercent: 0, minimumProtectedFrequency: 5000, releaseDuration: 40, comfortEqEnabled: false, comfortEqReductions: [] });
       if (event.data.type === "profile") this.setProfile(event.data.profile || {});
     };
   }
@@ -85,14 +85,13 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
   setProfile(profile) {
     this.profile = {
       preserveSpeech: profile.preserveSpeech ?? true,
-      suddenSoundLimit: clamp(profile.suddenSoundLimit, 10, 100, 85) / 100,
-      detectionSensitivity: clamp(profile.detectionSensitivity, 0, 100, 50),
-      maximumTonalReduction: clamp(profile.maximumTonalReduction, 6, 36, 24),
-      minimumProtectedFrequency: clamp(profile.minimumProtectedFrequency, 1000, 5000, 1500),
-      releaseDuration: clamp(profile.releaseDuration, 40, 250, 80),
+      peakLevel: 1 - clamp(profile.suddenSoundReductionPercent, 0, 90, 50) / 100,
+      detectionSensitivity: clamp(profile.detectionSensitivity, 0, 100, 95),
+      maximumTonalReductionPercent: clamp(profile.maximumTonalReductionPercent, 0, 100, 99),
+      minimumProtectedFrequency: clamp(profile.minimumProtectedFrequency, 1000, 5000, 1000),
+      releaseDuration: clamp(profile.releaseDuration, 40, 250, 110),
       comfortEqEnabled: Boolean(profile.comfortEqEnabled),
-      comfortEqReductions: BANDS.map((_, index) => clamp(profile.comfortEqReductions?.[index], 0, 100, 0)),
-      outputGain: 1 - clamp(profile.outputReduction, 0, 100, 0) / 100
+      comfortEqReductions: BANDS.map((_, index) => clamp(profile.comfortEqReductions?.[index], 0, 100, 0))
     };
     this.eq = BANDS.map((frequency, index) => ({
       coefficients: biquadCoefficients("peaking", frequency, 1.2, 20 * Math.log10(Math.max(0.001, 1 - this.profile.comfortEqReductions[index] / 100))),
@@ -130,7 +129,9 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
       const count = (this.candidates.get(key) || 0) + 1;
       this.candidates.set(key, count);
       seen.add(key);
-      if (count < DSP_CONFIG.consecutiveFrames) continue;
+      // A very prominent attack can arm immediately; less obvious tones still
+      // require stability so speech harmonics do not create transient notches.
+      if (count < DSP_CONFIG.consecutiveFrames && peak.prominenceDb < DSP_CONFIG.immediateProminenceDb) continue;
       let notch = this.notches.find(item => Math.abs(item.frequency - peak.frequency) < 120);
       if (!notch && this.notches.length < DSP_CONFIG.maximumNotches) {
         notch = { frequency: peak.frequency, depth: 0, target: 1, coefficients: null, states: [new Float64Array(2), new Float64Array(2)] };
@@ -139,7 +140,7 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
       if (notch) {
         notch.frequency = peak.frequency;
         notch.coefficients = biquadCoefficients("notch", peak.frequency, DSP_CONFIG.notchQ);
-        notch.target = 1 - Math.pow(10, -this.profile.maximumTonalReduction / 20);
+        notch.target = this.profile.maximumTonalReductionPercent / 100;
       }
     }
     for (const key of [...this.candidates.keys()]) {
@@ -168,8 +169,8 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
     const magnitude = Math.abs(output);
     const envelopeCoefficient = magnitude > this.limiterEnvelope[channel] ? Math.exp(-1 / (0.001 * sampleRate)) : Math.exp(-1 / (0.08 * sampleRate));
     this.limiterEnvelope[channel] = envelopeCoefficient * this.limiterEnvelope[channel] + (1 - envelopeCoefficient) * magnitude;
-    if (this.limiterEnvelope[channel] > this.profile.suddenSoundLimit) output *= this.profile.suddenSoundLimit / this.limiterEnvelope[channel];
-    return output * this.profile.outputGain;
+    if (this.limiterEnvelope[channel] > this.profile.peakLevel) output *= this.profile.peakLevel / this.limiterEnvelope[channel];
+    return output;
   }
 
   process(inputs, outputs) {
