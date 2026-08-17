@@ -1,14 +1,15 @@
-# SonicShielding
+# Sonic Shielding
 
-SonicShielding is a Chrome and Brave extension that softens sudden and frequency-sensitive audio in browser tabs selected by the user. Audio is processed locally and is never recorded or uploaded.
+Sonic Shielding is a Chrome and Brave extension that softens sudden and frequency-sensitive audio in browser tabs selected by the user. Audio is processed locally and is never recorded or uploaded.
 
 ## Current capabilities
 
 - Protect multiple selected tabs and keep protection active while switching tabs.
-- Apply a personalized nine-band attenuation curve and fast final limiter.
-- Calibrate with a low-level, hold-to-play tone and immediate Escape stop.
+- Detect prominent narrow beeps and harsh tones locally, then apply short-lived notches only where needed.
+- Limit sudden broadband peaks with a separate peak-level ceiling expressed as a percentage of digital maximum.
+- Preserve speech by default, with an optional permanent nine-band comfort EQ in its own section.
 - Store the comfort profile locally.
-- Show an `ON` toolbar badge for protected tabs.
+- Suspend and release processing resources when a protected tab is silent.
 
 Browser security requires the user to enable each protected tab. Extensions cannot intercept operating-system sounds or desktop applications.
 
@@ -32,4 +33,4 @@ The packaged store upload is written to `dist/`. Before publishing, add final st
 
 ## Safety and scope
 
-SonicShielding is a comfort tool, not a medical device, hearing test, or guarantee that migraine symptoms will be prevented. Digital volume is not a calibrated sound-pressure measurement and varies by output device and system volume.
+Sonic Shielding is a comfort tool, not a medical device, hearing test, or guarantee that migraine symptoms will be prevented. Digital volume is not a calibrated sound-pressure measurement and varies by output device and system volume.

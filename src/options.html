@@ -1,8 +1,26 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Sonic Shielding - Comfort profile</title><link rel="stylesheet" href="styles.css"></head><body><main>
-  <div class="brand"><img src="../icons/icon-128.png" alt=""><div><h1>Sonic Shielding - Comfort profile</h1><div class="muted">Personalize how frequencies are softened</div></div></div>
-  <section class="card warning"><strong>Use care with sound.</strong> This is a comfort tool, not a medical or hearing test. Set your device to its usual volume, begin low, and stop immediately if uncomfortable.</section>
-  <section class="card"><h2>Sound tester</h2><p class="muted">Each slider targets the frequency range shown. Choose a range, then hold “Play gentle tone” to hear its center frequency. Low test tones include soft harmonics so they can be heard on smaller speakers. The tone stops when released or when you press Escape.</p><div id="bands"></div><button id="play">Hold to play gentle tone</button></section>
-  <section class="card"><h2>Overall reduction</h2><div class="row"><label>All audio</label><input id="output" type="range" min="0" max="100" step="1"><output id="outputValue"></output></div></section>
-  <section class="card"><h2>Maximum level</h2><p class="muted">Limits protected audio peaks as a percentage of the digital maximum. Physical loudness still depends on your device and speaker volume.</p><div class="row"><label>Digital peak cap</label><input id="cap" type="range" min="0" max="100" step="1"><output id="capValue"></output></div><label class="check"><input id="autosave" type="checkbox"> Autosave changes</label><button id="save">Save comfort profile</button><p id="saved" class="muted"></p></section>
+<!doctype html><html><head><meta charset="utf-8"><title>Sonic Shielding - Comfort profile</title><link rel="stylesheet" href="styles.css"></head><body class="options-page"><main>
+  <div class="brand"><img src="../icons/icon-128.png" alt=""><div><h1>Sonic Shielding - Comfort profile</h1><div class="muted">Softer sound where you need it.</div></div></div>
+  <section class="card warning"><strong>Use care with sound.</strong> This is a comfort tool, not a medical or hearing test. Begin low and stop immediately if uncomfortable.</section>
+  <section class="card"><h2>Beep blocker</h2><p class="muted">Two protections handle different kinds of uncomfortable sound.</p>
+    <div class="protection-group">
+      <h3>Tone-specific protection</h3>
+      <p class="muted">For beeps, electronic dings, and squeals. It finds the offending frequencies and briefly reduces only those tones—not the entire sound.</p>
+      <label class="field"><span>Protection strength</span><select id="strength"><option value="low">Low</option><option value="balanced">Balanced</option><option value="strong">Strong</option></select></label>
+      <label class="field"><span>Tone detection sensitivity</span><input id="sensitivity" type="range" min="0" max="100"><output id="sensitivityValue"></output></label>
+      <label class="field"><span>Maximum tone reduction</span><input id="tonalReduction" type="range" min="0" max="100"><output id="tonalReductionValue"></output></label>
+      <label class="field"><span>Minimum protected frequency</span><input id="minimumFrequency" type="range" min="1000" max="5000" step="100"><output id="minimumFrequencyValue"></output></label>
+      <label class="field"><span>Release duration</span><input id="releaseDuration" type="range" min="40" max="250" step="5"><output id="releaseDurationValue"></output></label>
+      <label class="check"><input id="preserveSpeech" type="checkbox"> Preserve speech</label>
+    </div>
+    <div class="protection-group spike-group">
+      <h3>Whole-sound spike protection</h3>
+      <p class="muted">For abrupt clicks, impacts, and loud bursts. It briefly reduces the whole sound when the overall signal spikes—not just one frequency.</p>
+      <label class="field"><span>Sudden sound reduction</span><input id="suddenSoundReduction" type="range" min="0" max="90" step="1"><output id="suddenSoundReductionValue"></output></label>
+    </div>
+  </section>
+  <section class="card"><h2>Optional comfort EQ</h2><label class="check"><input id="comfortEqEnabled" type="checkbox"> Enable permanent comfort EQ</label>
+    <p class="muted">These reductions stay active continuously when enabled. The suggested settings heavily soften upper frequencies to cover many piercing, high-pitched sounds. The EQ starts off because permanent filtering can also muffle speech and music.</p><div id="bands"></div>
+  </section>
+  <section class="card"><label class="check"><input id="autosave" type="checkbox"> Autosave changes</label><button id="save">Save comfort profile</button><p id="saved" class="muted"></p></section>
   <script type="module" src="options.js"></script>
 </main></body></html>

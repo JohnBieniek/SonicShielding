@@ -29,22 +29,25 @@
     .usage-card h3 { margin: 0 0 8px; font-size: 17px; }
     .usage-card p { margin: 0; color: #b9d9e8; }
     .usage-card strong { color: #eefcff; }
+    .wide { grid-column: 1 / -1; }
+    .control-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .control { padding: 13px 14px; border-radius: 13px; background: #0d2c4c; border: 1px solid #285471; color: #b9d9e8; }
+    .control strong { display: block; margin-bottom: 3px; }
+    .followup { margin-top: 14px !important; }
+    .badge { display: inline-block; margin-bottom: 10px; padding: 4px 9px; border-radius: 999px; background: #173f60; color: #6ce5dc; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
     .profile-link { display: inline-block; margin-top: 16px; color: #6ce5dc; font-weight: 800; text-decoration: none; }
     .profile-link:hover { text-decoration: underline; }
     button { width: 100%; border: 0; border-radius: 13px; padding: 14px 18px; background: #55d8cf; color: #062432; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 8px 22px rgba(32, 205, 194, .18); }
     button:hover { background: #6ce5dc; transform: translateY(-1px); }
     button:focus-visible { outline: 3px solid #d8fffb; outline-offset: 3px; }
     .note { padding: 18px 40px; background: #091f39; border-top: 1px solid #244d6c; color: #a7cfe2; text-align: center; font-size: 14px; }
-    @media (max-width: 760px) { main { padding: 24px 0; } .hero { grid-template-columns: 1fr; padding: 26px; } .visual { order: -1; } .usage { padding: 0 26px 26px; } .usage-grid { grid-template-columns: 1fr; } .note { padding: 16px 26px; } }
+    @media (max-width: 760px) { main { padding: 24px 0; } .hero { grid-template-columns: 1fr; padding: 26px; } .visual { order: -1; } .usage { padding: 0 26px 26px; } .usage-grid, .control-list { grid-template-columns: 1fr; } .wide { grid-column: auto; } .note { padding: 16px 26px; } }
   </style>
   <script src="onboarding.js" defer></script>
 </head>
 <body>
   <main>
-    <div class="brand">
-      <img src="../icons/icon-128.png" alt="">
-      <div><div class="brand-name">Sonic Shielding</div><div class="tagline">Softer sound where you need it.</div></div>
-    </div>
+    <div class="brand"><img src="../icons/icon-128.png" alt=""><div><div class="brand-name">Sonic Shielding</div><div class="tagline">Softer sound where you need it.</div></div></div>
     <section class="panel">
       <div class="hero">
         <div class="content">
@@ -61,20 +64,46 @@
         <div class="visual"><img class="guide" src="pin-extension-guide.png" alt="Illustration showing the Extensions menu and the pin beside Sonic Shielding"></div>
       </div>
       <section class="usage" aria-labelledby="usage-title">
-        <h2 id="usage-title">How to use Sonic Shielding</h2>
+        <h2 id="usage-title">How Sonic Shielding works</h2>
         <div class="usage-grid">
+          <article class="usage-card wide">
+            <span class="badge">Primary protection</span>
+            <h3>Beep blocker</h3>
+            <p>Sonic Shielding analyzes protected tab audio locally. When it finds a prominent beep or narrow harsh tone, it briefly reduces only the detected frequencies. A short lookahead helps catch the beginning, and speech preservation reduces unnecessary filtering of voices.</p>
+            <div class="control-list">
+              <div class="control"><strong>Protection strength</strong>Low, Balanced, and Strong provide quick combinations of sensitivity and maximum tone reduction.</div>
+              <div class="control"><strong>Tone detection sensitivity</strong>Higher values react to less-prominent tones. Lower values require clearer evidence of a beep.</div>
+              <div class="control"><strong>Maximum tone reduction</strong>The greatest percentage by which a detected tone may be reduced. It does not continuously reduce all audio.</div>
+              <div class="control"><strong>Minimum protected frequency</strong>Tones below this frequency are ignored by the beep detector. The 1 kHz default includes lower layers found in electronic alerts.</div>
+              <div class="control"><strong>Release duration</strong>How long suppression fades out after a tone is no longer detected. Longer releases sound smoother; shorter releases recover faster.</div>
+              <div class="control"><strong>Sudden sound reduction</strong>Reduces unusually strong broadband peaks by the selected percentage. This works separately from narrow-tone detection.</div>
+            </div>
+            <p class="followup"><strong>Preserve speech</strong> is enabled by default. Leave it on unless you need more aggressive detection around voices.</p>
+          </article>
           <article class="usage-card">
-            <h3>Set your comfort profile</h3>
-            <p>Choose how much each frequency range should be softened, set an overall reduction or maximum level, and use the hold-to-play tester to check your choices. Changes autosave by default.</p>
+            <span class="badge">Per tab</span>
+            <h3>Turn protection on</h3>
+            <p>Open the pinned shield while viewing a tab and select <strong>Protect this tab</strong>. Enable it separately on every tab you want protected. Red means off; blue means active. Protection stays active on that tab while you visit other tabs.</p>
+          </article>
+          <article class="usage-card">
+            <span class="badge">Optional</span>
+            <h3>Permanent comfort EQ</h3>
+            <p>The lower profile section can continuously reduce selected frequency ranges. Its suggested settings heavily soften upper frequencies to cover many piercing, high-pitched sounds. It starts <strong>off</strong> because permanent filtering can also muffle speech and music.</p>
+          </article>
+          <article class="usage-card">
+            <span class="badge">Settings</span>
+            <h3>Autosave and live updates</h3>
+            <p>Autosave is enabled by default. Changes are stored locally and immediately sent to every actively protected tab. Turn autosave off if you prefer to apply a group of changes with the Save button.</p>
             <a class="profile-link" href="options.html" target="_blank">Open comfort profile →</a>
           </article>
           <article class="usage-card">
-            <h3>Turn it on for each tab</h3>
-            <p>Open the pinned shield while viewing a tab and select <strong>Protect this tab</strong>. You must enable Sonic Shielding separately on every tab you want protected. Red means off; blue means protection is active.</p>
+            <span class="badge">Efficiency & privacy</span>
+            <h3>Local, idle-aware processing</h3>
+            <p>Audio is processed on your device and is never recorded or uploaded. When a protected tab stops playing sound, Sonic Shielding pauses audio processing and releases unused resources, then restores them when playback resumes.</p>
           </article>
         </div>
       </section>
-      <div class="note">These steps work in both Brave and Chrome. You can unpin the extension at any time.</div>
+      <div class="note">Works in Brave and Chrome. Browser-internal and extension-store pages cannot be captured. Sonic Shielding is a comfort tool, not a medical device or calibrated loudness meter.</div>
     </section>
   </main>
 </body>

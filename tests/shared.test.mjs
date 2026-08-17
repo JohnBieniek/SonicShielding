@@ -1,53 +1,85 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BAND_RANGES, DEFAULT_PROFILE, formatFrequency, formatFrequencyRange, frequenciesForRange, levelToDecibels, normalizeProfile, profileToGains, reductionToFilterSettings, reductionToLinearGain } from "../src/shared.js";
+import { BAND_RANGES, DEFAULT_PROFILE, DETECTOR_REVISION, PROFILE_SCHEMA_VERSION, formatFrequency, formatFrequencyRange, normalizeProfile, reductionToLinearGain } from "../src/shared.js";
+import { DSP_CONFIG, findTonalPeaks } from "../src/dsp-config.js";
 
-test("formats frequency labels", () => {
-  assert.equal(formatFrequency(500), "500 Hz");
+test("formats frequency labels and ranges", () => {
   assert.equal(formatFrequency(4000), "4 kHz");
-});
-
-test("formats frequency controls as ranges", () => {
-  assert.equal(formatFrequencyRange(BAND_RANGES[0]), "45 Hz–90 Hz");
   assert.equal(formatFrequencyRange(BAND_RANGES[7]), "5.7 kHz–9.8 kHz");
 });
 
 test("turns reduction percentages into linear gain", () => {
   assert.equal(reductionToLinearGain(30), 0.7);
   assert.equal(reductionToLinearGain(100), 0);
-  assert.equal(reductionToLinearGain(120), 0);
 });
 
-test("defaults to the requested frequency reduction curve", () => {
-  assert.deepEqual(DEFAULT_PROFILE.thresholds, [0, 0, 0, 0, 97, 98, 99, 100, 100]);
-  assert.equal(DEFAULT_PROFILE.output, 0);
+test("current defaults pass audio without permanent EQ", () => {
+  assert.equal(DEFAULT_PROFILE.schemaVersion, PROFILE_SCHEMA_VERSION);
+  assert.equal(DEFAULT_PROFILE.protectionStrength, "strong");
+  assert.equal(DEFAULT_PROFILE.detectionSensitivity, 95);
+  assert.equal(DEFAULT_PROFILE.suddenSoundReductionPercent, 50);
+  assert.equal(DEFAULT_PROFILE.preserveSpeech, true);
+  assert.equal(DEFAULT_PROFILE.comfortEqEnabled, false);
+  assert.deepEqual(DEFAULT_PROFILE.comfortEqReductions, [0, 0, 0, 0, 97, 98, 99, 100, 100]);
+  assert.equal(DEFAULT_PROFILE.maximumTonalReductionPercent, 99);
 });
 
-test("converts legacy negative slider values to percentages", () => {
-  const profile = normalizeProfile({ thresholds: [-30], output: -10 });
-  assert.equal(profile.thresholds[0], 30);
-  assert.equal(profile.output, 10);
+test("legacy profiles receive the original master EQ curve while it stays disabled", () => {
+  const profile = normalizeProfile({ thresholds: [-30, 98], output: -10, cap: 70 });
+  assert.equal(profile.schemaVersion, 6);
+  assert.equal(profile.detectorRevision, DETECTOR_REVISION);
+  assert.deepEqual(profile.comfortEqReductions, [0, 0, 0, 0, 97, 98, 99, 100, 100]);
+  assert.equal(profile.comfortEqEnabled, false);
+  assert.equal(profile.suddenSoundReductionPercent, 50);
+  assert.equal(Object.hasOwn(profile, "outputReduction"), false);
 });
 
-test("converts percentages to the decibels required by equalizer filters", () => {
-  assert.ok(Math.abs(profileToGains({ thresholds: [50] })[0] + 6.0206) < 0.001);
+test("normalizes detector configuration", () => {
+  const profile = normalizeProfile({ schemaVersion: 6, detectorRevision: 4, comfortEqRevision: 1, suddenSoundRevision: 1, protectionStrength: "invalid", detectionSensitivity: 200, maximumTonalReductionPercent: -1, minimumProtectedFrequency: 9000, releaseDuration: 2 });
+  assert.equal(profile.protectionStrength, "strong");
+  assert.equal(profile.detectionSensitivity, 100);
+  assert.equal(profile.maximumTonalReductionPercent, 0);
+  assert.equal(profile.minimumProtectedFrequency, 5000);
+  assert.equal(profile.releaseDuration, 40);
 });
 
-test("converts a digital level cap for the limiter", () => {
-  assert.ok(Math.abs(levelToDecibels(50) + 6.0206) < 0.001);
-  assert.equal(levelToDecibels(0), -100);
-  assert.equal(normalizeProfile({}).cap, 100);
+test("detects a prominent 3 kHz spectral peak", () => {
+  const magnitudes = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(1);
+  const bin = Math.round(3000 * DSP_CONFIG.fftSize / 48000);
+  magnitudes[bin] = 20;
+  const peaks = findTonalPeaks(magnitudes, 48000, { minimumFrequency: 1500, sensitivity: 50, preserveSpeech: true });
+  assert.equal(peaks.length, 1);
+  assert.ok(Math.abs(peaks[0].frequency - 3000) < 50);
 });
 
-test("keeps deep frequency cuts narrow", () => {
-  assert.deepEqual(reductionToFilterSettings(100), { type: "notch", gain: 0, q: 4 });
-  assert.equal(reductionToFilterSettings(0).q, 4);
-  assert.ok(reductionToFilterSettings(99).q > 39.9);
+test("ignores broadband and quiet non-prominent spectra", () => {
+  const flat = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(4);
+  assert.deepEqual(findTonalPeaks(flat, 48000, { minimumFrequency: 1500 }), []);
 });
 
-test("spreads filters across each displayed range", () => {
-  const frequencies = frequenciesForRange(BAND_RANGES[7]);
-  assert.equal(frequencies.length, 3);
-  assert.ok(frequencies[0] > 5700);
-  assert.ok(frequencies[2] > 9000 && frequencies[2] < 9800);
+test("returns multiple simultaneous alert tones", () => {
+  const magnitudes = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(1);
+  for (const frequency of [2000, 4000, 6000, 8000]) magnitudes[Math.round(frequency * DSP_CONFIG.fftSize / 48000)] = 30;
+  const peaks = findTonalPeaks(magnitudes, 48000, { minimumFrequency: 1500, sensitivity: 70, preserveSpeech: false });
+  assert.equal(peaks.length, 4);
+});
+
+test("strong defaults cover the measured layered reference beep", () => {
+  const profile = normalizeProfile(DEFAULT_PROFILE);
+  assert.equal(profile.minimumProtectedFrequency, 1000);
+  assert.equal(profile.maximumTonalReductionPercent, 99);
+  assert.equal(DSP_CONFIG.lookaheadMs, 40);
+  assert.equal(DSP_CONFIG.maximumNotches, 6);
+  assert.equal(DSP_CONFIG.notchQ, 8);
+  const magnitudes = new Float64Array(DSP_CONFIG.fftSize / 2 + 1).fill(1);
+  for (const frequency of [1219, 2625, 5813, 6844, 9891]) magnitudes[Math.round(frequency * DSP_CONFIG.fftSize / 48000)] = 40;
+  const peaks = findTonalPeaks(magnitudes, 48000, { minimumFrequency: profile.minimumProtectedFrequency, sensitivity: profile.detectionSensitivity, preserveSpeech: true });
+  assert.equal(peaks.length, 5);
+});
+
+test("migrates the previous decibel setting to an equivalent percentage", () => {
+  const profile = normalizeProfile({ schemaVersion: 3, detectorRevision: 2, protectionStrength: "strong", maximumTonalReduction: 60, suddenSoundLimit: 75 });
+  assert.ok(profile.maximumTonalReductionPercent > 99.8);
+  assert.equal(profile.suddenSoundReductionPercent, 50);
+  assert.equal(Object.hasOwn(profile, "maximumTonalReduction"), false);
 });

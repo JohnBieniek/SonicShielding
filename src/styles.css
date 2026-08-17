@@ -2,9 +2,11 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 340px; }
 main { padding: 22px; max-width: 760px; margin: auto; }
+.options-page main { max-width: 1080px; }
 .brand { display: flex; gap: 12px; align-items: center; }
 .brand img { width: 44px; height: 44px; border-radius: 12px; }
 h1 { font-size: 20px; margin: 0; } h2 { font-size: 17px; }
+h3 { margin: 0 0 6px; font-size: 15px; }
 .muted { color: #a7c2d1; }
 .card { background: #0d2947; border: 1px solid #204764; border-radius: 16px; padding: 18px; margin: 18px 0; }
 button, .button { width: 100%; border: 0; border-radius: 10px; padding: 12px 16px; font-weight: 700; cursor: pointer; background: #36d7ca; color: #05202b; text-decoration: none; display: inline-block; text-align: center; }
@@ -12,8 +14,24 @@ button.secondary, .button.secondary { background: #173b59; color: #eafcff; margi
 button.danger { background: #ffd6d1; color: #5c1711; }
 .status { padding: 10px 12px; border-radius: 10px; background: #071b35; margin-bottom: 12px; }
 .row { display: grid; grid-template-columns: 90px 1fr 62px; align-items: center; gap: 12px; margin: 12px 0; }
+.band-header, .band-row { display: grid; grid-template-columns: minmax(140px, 1.15fr) minmax(140px, 2fr) 86px minmax(140px, 2fr) 76px; align-items: center; gap: 12px; }
+.band-header { margin: 18px 0 8px; color: #a7c2d1; font-size: 12px; font-weight: 700; }
+.band-row { margin: 12px 0; }
+.band-row output { font-size: 13px; }
 input[type=range] { width: 100%; accent-color: #36d7ca; }
 .check { display: flex; align-items: center; gap: 8px; margin: 16px 0; }
 .check input { width: 18px; height: 18px; accent-color: #36d7ca; }
 [hidden] { display: none !important; }
 .warning { border-left: 4px solid #f1c66b; padding-left: 12px; }
+.field { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr minmax(90px, auto); align-items: center; gap: 12px; margin: 16px 0; }
+.protection-group { margin-top: 18px; padding: 16px; border: 1px solid #285675; border-radius: 13px; background: #0a233e; }
+.protection-group .field:last-child, .protection-group .check:last-child { margin-bottom: 0; }
+.spike-group { border-left: 4px solid #f1c66b; }
+select { width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #204764; background: #071b35; color: #eefcff; }
+summary { cursor: pointer; font-size: 17px; font-weight: 700; }
+@media (max-width: 700px) {
+  .field { grid-template-columns: 1fr; gap: 6px; }
+  .band-header { display: none; }
+  .band-row { grid-template-columns: 1fr 76px; gap: 7px 10px; padding: 10px 0; border-bottom: 1px solid #204764; }
+  .band-row label { grid-column: 1 / -1; font-weight: 700; }
+}
