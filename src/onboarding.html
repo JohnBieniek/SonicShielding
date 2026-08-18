@@ -41,6 +41,12 @@
     button:hover { background: #6ce5dc; transform: translateY(-1px); }
     button:focus-visible { outline: 3px solid #d8fffb; outline-offset: 3px; }
     .note { padding: 18px 40px; background: #091f39; border-top: 1px solid #244d6c; color: #a7cfe2; text-align: center; font-size: 14px; }
+    .partnership { margin: 30px auto 0; text-align: center; color: #a7cfe2; }
+    .partnership p { margin: 0 0 10px; }
+    .partnership img { display: block; width: min(260px, 70vw); height: auto; margin: auto; }
+    .partnership-logo { display: block; width: fit-content; margin: auto; }
+    .partnership-link { display: inline-block; margin-top: 10px; color: #6ce5dc; font-weight: 700; text-decoration: none; }
+    .partnership a:hover { text-decoration: underline; }
     @media (max-width: 760px) { main { padding: 24px 0; } .hero { grid-template-columns: 1fr; padding: 26px; } .visual { order: -1; } .usage { padding: 0 26px 26px; } .usage-grid, .control-list { grid-template-columns: 1fr; } .wide { grid-column: auto; } .note { padding: 16px 26px; } }
   </style>
   <script src="onboarding.js" defer></script>
@@ -74,7 +80,7 @@
               <div class="control"><strong>Protection strength</strong>Low, Balanced, and Strong provide quick combinations of sensitivity and maximum tone reduction.</div>
               <div class="control"><strong>Tone detection sensitivity</strong>Higher values react to less-prominent tones. Lower values require clearer evidence of a beep.</div>
               <div class="control"><strong>Maximum tone reduction</strong>The greatest percentage by which a detected tone may be reduced. It does not continuously reduce all audio.</div>
-              <div class="control"><strong>Minimum protected frequency</strong>Tones below this frequency are ignored by the beep detector. The 1 kHz default includes lower layers found in electronic alerts.</div>
+              <div class="control"><strong>Lowest protected frequency</strong>Tones below this frequency are ignored. Detection continues up to 16 kHz so very high electronic alarms are covered.</div>
               <div class="control"><strong>Release duration</strong>How long suppression fades out after a tone is no longer detected. Longer releases sound smoother; shorter releases recover faster.</div>
               <div class="control"><strong>Sudden sound reduction</strong>Reduces unusually strong broadband peaks by the selected percentage. This works separately from narrow-tone detection.</div>
             </div>
@@ -105,6 +111,11 @@
       </section>
       <div class="note">Works in Brave and Chrome. Browser-internal and extension-store pages cannot be captured. Sonic Shielding is a comfort tool, not a medical device or calibrated loudness meter.</div>
     </section>
+    <footer class="partnership">
+      <p>Created in partnership with</p>
+      <a class="partnership-logo" href="https://www.facebook.com/Experiencewhimsy" target="_blank" rel="noopener noreferrer"><img src="whimsy-logo.png" alt="WHimsy — Consulting, Media, and Marketing"></a>
+      <a class="partnership-link" href="https://www.facebook.com/Experiencewhimsy" target="_blank" rel="noopener noreferrer">facebook.com/Experiencewhimsy</a>
+    </footer>
   </main>
 </body>
 </html>

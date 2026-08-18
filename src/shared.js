@@ -18,6 +18,7 @@ export const DEFAULT_PROFILE = {
   comfortEqRevision: COMFORT_EQ_REVISION,
   suddenSoundRevision: SUDDEN_SOUND_REVISION,
   protectionStrength: "strong",
+  aggressiveAlarmBlocking: false,
   preserveSpeech: true,
   suddenSoundReductionPercent: 50,
   detectionSensitivity: 95,
@@ -63,6 +64,7 @@ export function normalizeProfile(profile = {}) {
     comfortEqRevision: COMFORT_EQ_REVISION,
     suddenSoundRevision: SUDDEN_SOUND_REVISION,
     protectionStrength,
+    aggressiveAlarmBlocking: Boolean(profile.aggressiveAlarmBlocking),
     preserveSpeech: profile.preserveSpeech ?? true,
     suddenSoundReductionPercent: clamp(
       profile.suddenSoundRevision === SUDDEN_SOUND_REVISION ? migratedSuddenReduction : DEFAULT_PROFILE.suddenSoundReductionPercent,

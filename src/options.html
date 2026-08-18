@@ -8,9 +8,13 @@
       <label class="field"><span>Protection strength</span><select id="strength"><option value="low">Low</option><option value="balanced">Balanced</option><option value="strong">Strong</option></select></label>
       <label class="field"><span>Tone detection sensitivity</span><input id="sensitivity" type="range" min="0" max="100"><output id="sensitivityValue"></output></label>
       <label class="field"><span>Maximum tone reduction</span><input id="tonalReduction" type="range" min="0" max="100"><output id="tonalReductionValue"></output></label>
-      <label class="field"><span>Minimum protected frequency</span><input id="minimumFrequency" type="range" min="1000" max="5000" step="100"><output id="minimumFrequencyValue"></output></label>
+      <label class="field"><span>Lowest protected frequency</span><input id="minimumFrequency" type="range" min="1000" max="5000" step="100"><output id="minimumFrequencyValue"></output></label>
       <label class="field"><span>Release duration</span><input id="releaseDuration" type="range" min="40" max="250" step="5"><output id="releaseDurationValue"></output></label>
-      <label class="check"><input id="preserveSpeech" type="checkbox"> Preserve speech</label>
+      <div class="toggle-row">
+        <label class="check"><input id="preserveSpeech" type="checkbox"> Preserve speech</label>
+        <label class="check"><input id="aggressiveAlarmBlocking" type="checkbox"> Agressive blocking</label>
+      </div>
+      <p class="muted">Widens suppression and briefly reduces the whole sound when several alarm-like tones are detected. This can make other audio sound quieter while an alarm is present.</p>
     </div>
     <div class="protection-group spike-group">
       <h3>Whole-sound spike protection</h3>
@@ -22,5 +26,10 @@
     <p class="muted">These reductions stay active continuously when enabled. The suggested settings heavily soften upper frequencies to cover many piercing, high-pitched sounds. The EQ starts off because permanent filtering can also muffle speech and music.</p><div id="bands"></div>
   </section>
   <section class="card"><label class="check"><input id="autosave" type="checkbox"> Autosave changes</label><button id="save">Save comfort profile</button><p id="saved" class="muted"></p></section>
+  <footer class="partnership">
+    <p>Created in partnership with</p>
+    <a class="partnership-logo" href="https://www.facebook.com/Experiencewhimsy" target="_blank" rel="noopener noreferrer"><img src="whimsy-logo.png" alt="WHimsy — Consulting, Media, and Marketing"></a>
+    <a class="partnership-link" href="https://www.facebook.com/Experiencewhimsy" target="_blank" rel="noopener noreferrer">facebook.com/Experiencewhimsy</a>
+  </footer>
   <script type="module" src="options.js"></script>
 </main></body></html>

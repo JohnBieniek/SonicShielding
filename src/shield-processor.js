@@ -1,4 +1,4 @@
-import { DSP_CONFIG, findTonalPeaks } from "./dsp-config.js";
+import { DSP_CONFIG, findTonalPeaks, isAlarmSignature } from "./dsp-config.js";
 
 const BANDS = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 12000];
 
@@ -75,6 +75,9 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
     this.candidates = new Map();
     this.notches = [];
     this.eq = [];
+    this.alarmDuckingDepth = 0;
+    this.alarmDuckingTarget = 0;
+    this.aggressiveAlarmActive = false;
     this.limiterEnvelope = [0, 0];
     this.port.onmessage = event => {
       if (event.data.type === "bypass") this.setProfile({ preserveSpeech: true, suddenSoundReductionPercent: 0, detectionSensitivity: 0, maximumTonalReductionPercent: 0, minimumProtectedFrequency: 5000, releaseDuration: 40, comfortEqEnabled: false, comfortEqReductions: [] });
@@ -85,6 +88,7 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
   setProfile(profile) {
     this.profile = {
       preserveSpeech: profile.preserveSpeech ?? true,
+      aggressiveAlarmBlocking: Boolean(profile.aggressiveAlarmBlocking),
       peakLevel: 1 - clamp(profile.suddenSoundReductionPercent, 0, 90, 50) / 100,
       detectionSensitivity: clamp(profile.detectionSensitivity, 0, 100, 95),
       maximumTonalReductionPercent: clamp(profile.maximumTonalReductionPercent, 0, 100, 99),
@@ -116,6 +120,8 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
     }
     if (Math.sqrt(energy / ordered.length) < DSP_CONFIG.minimumRms) {
       this.notches.forEach(notch => { notch.target = 0; });
+      this.alarmDuckingTarget = 0;
+      this.aggressiveAlarmActive = false;
       return;
     }
     const peaks = findTonalPeaks(fftMagnitudes(ordered), sampleRate, {
@@ -124,6 +130,7 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
       preserveSpeech: this.profile.preserveSpeech
     });
     const seen = new Set();
+    const confirmedPeaks = [];
     for (const peak of peaks) {
       const key = Math.round(peak.frequency / 80);
       const count = (this.candidates.get(key) || 0) + 1;
@@ -131,7 +138,11 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
       seen.add(key);
       // A very prominent attack can arm immediately; less obvious tones still
       // require stability so speech harmonics do not create transient notches.
-      if (count < DSP_CONFIG.consecutiveFrames && peak.prominenceDb < DSP_CONFIG.immediateProminenceDb) continue;
+      const immediateProminenceDb = this.profile.aggressiveAlarmBlocking && !this.profile.preserveSpeech
+        ? DSP_CONFIG.aggressiveImmediateProminenceDb
+        : DSP_CONFIG.immediateProminenceDb;
+      if (count < DSP_CONFIG.consecutiveFrames && peak.prominenceDb < immediateProminenceDb) continue;
+      confirmedPeaks.push({ frequency: peak.frequency, frames: count });
       let notch = this.notches.find(item => Math.abs(item.frequency - peak.frequency) < 120);
       if (!notch && this.notches.length < DSP_CONFIG.maximumNotches) {
         notch = { frequency: peak.frequency, depth: 0, target: 1, coefficients: null, states: [new Float64Array(2), new Float64Array(2)] };
@@ -139,7 +150,6 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
       }
       if (notch) {
         notch.frequency = peak.frequency;
-        notch.coefficients = biquadCoefficients("notch", peak.frequency, DSP_CONFIG.notchQ);
         notch.target = this.profile.maximumTonalReductionPercent / 100;
       }
     }
@@ -149,11 +159,24 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
     this.notches.forEach(notch => {
       if (![...seen].some(key => Math.abs(key * 80 - notch.frequency) < 160)) notch.target = 0;
     });
+    const alarmSignature = isAlarmSignature(confirmedPeaks, this.profile.preserveSpeech);
+    this.aggressiveAlarmActive = this.profile.aggressiveAlarmBlocking && alarmSignature;
+    const notchQ = this.aggressiveAlarmActive ? DSP_CONFIG.aggressiveNotchQ : DSP_CONFIG.notchQ;
+    this.notches.forEach(notch => {
+      if (notch.target > 0) notch.coefficients = biquadCoefficients("notch", notch.frequency, notchQ);
+    });
+    // Only a confirmed alarm signature can duck the complete signal. The
+    // speech-preserving path requires additional high-frequency evidence so
+    // ordinary voiced harmonics do not make conversation quieter.
+    this.alarmDuckingTarget = this.aggressiveAlarmActive
+      ? DSP_CONFIG.alarmDuckingReduction * (this.profile.maximumTonalReductionPercent / 100)
+      : 0;
   }
 
   processSample(sample, channel) {
     let output = sample;
-    const attack = Math.exp(-1 / (DSP_CONFIG.attackMs * 0.001 * sampleRate));
+    const attackMs = this.aggressiveAlarmActive ? DSP_CONFIG.aggressiveAttackMs : DSP_CONFIG.attackMs;
+    const attack = Math.exp(-1 / (attackMs * 0.001 * sampleRate));
     const release = Math.exp(-1 / (this.profile.releaseDuration * 0.001 * sampleRate));
     for (const notch of this.notches) {
       const coefficient = notch.target > notch.depth ? attack : release;
@@ -163,6 +186,13 @@ class SonicShieldProcessor extends AudioWorkletProcessor {
         output += (filtered - output) * notch.depth;
       }
     }
+    if (channel === 0) {
+      const duckingAttack = Math.exp(-1 / (DSP_CONFIG.aggressiveAttackMs * 0.001 * sampleRate));
+      const duckingRelease = Math.exp(-1 / (DSP_CONFIG.alarmDuckingReleaseMs * 0.001 * sampleRate));
+      const duckingCoefficient = this.alarmDuckingTarget > this.alarmDuckingDepth ? duckingAttack : duckingRelease;
+      this.alarmDuckingDepth = duckingCoefficient * this.alarmDuckingDepth + (1 - duckingCoefficient) * this.alarmDuckingTarget;
+    }
+    output *= 1 - this.alarmDuckingDepth;
     if (this.profile.comfortEqEnabled) {
       for (const band of this.eq) output = this.filter(output, band.coefficients, band.states[channel]);
     }

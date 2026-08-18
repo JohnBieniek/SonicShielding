@@ -2,7 +2,10 @@ export const DSP_CONFIG = Object.freeze({
   fftSize: 1024,
   analysisHop: 256,
   maximumNotches: 6,
-  maximumFrequency: 10000,
+  // Common electronic alarms can place their strongest component just above
+  // 10 kHz. Analyze through the upper comfort-EQ boundary so those tones are
+  // eligible for temporary suppression too.
+  maximumFrequency: 16000,
   baseProminenceDb: 12,
   consecutiveFrames: 2,
   immediateProminenceDb: 18,
@@ -10,7 +13,18 @@ export const DSP_CONFIG = Object.freeze({
   attackMs: 4,
   defaultReleaseMs: 110,
   minimumRms: 0.006,
-  notchQ: 8
+  notchQ: 8,
+  aggressiveImmediateProminenceDb: 16,
+  aggressiveAttackMs: 2,
+  aggressiveNotchQ: 4.5,
+  alarmDuckingMinimumPeaks: 2,
+  speechSafeAlarmMinimumPeaks: 3,
+  speechSafeAlarmHighFrequency: 5000,
+  speechSafeAlarmMinimumHighPeaks: 2,
+  speechSafeAlarmVeryHighFrequency: 9000,
+  speechSafeAlarmStableFrames: 6,
+  alarmDuckingReduction: 0.8,
+  alarmDuckingReleaseMs: 180
 });
 
 export function findTonalPeaks(magnitudes, sampleRate, settings = {}) {
@@ -39,4 +53,14 @@ export function findTonalPeaks(magnitudes, sampleRate, settings = {}) {
     if (prominenceDb >= prominenceRequired) peaks.push({ frequency: bin * sampleRate / fftSize, prominenceDb, magnitude });
   }
   return peaks.sort((left, right) => right.prominenceDb - left.prominenceDb).slice(0, DSP_CONFIG.maximumNotches);
+}
+
+export function isAlarmSignature(peaks, preserveSpeech = true) {
+  if (!preserveSpeech) return peaks.length >= DSP_CONFIG.alarmDuckingMinimumPeaks;
+  const stablePeaks = peaks.filter(peak => peak.frames >= DSP_CONFIG.speechSafeAlarmStableFrames);
+  const highFrequencyPeaks = stablePeaks.filter(peak => peak.frequency >= DSP_CONFIG.speechSafeAlarmHighFrequency).length;
+  const hasVeryHighFrequencyPeak = stablePeaks.some(peak => peak.frequency >= DSP_CONFIG.speechSafeAlarmVeryHighFrequency);
+  return stablePeaks.length >= DSP_CONFIG.speechSafeAlarmMinimumPeaks &&
+    highFrequencyPeaks >= DSP_CONFIG.speechSafeAlarmMinimumHighPeaks &&
+    hasVeryHighFrequencyPeak;
 }

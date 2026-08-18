@@ -13,6 +13,7 @@ saveButton.hidden = autosave.checked;
 
 const controls = {
   strength: byId("strength"), suddenSoundReductionPercent: byId("suddenSoundReduction"), preserveSpeech: byId("preserveSpeech"),
+  aggressiveAlarmBlocking: byId("aggressiveAlarmBlocking"),
   detectionSensitivity: byId("sensitivity"), maximumTonalReductionPercent: byId("tonalReduction"),
   minimumProtectedFrequency: byId("minimumFrequency"), releaseDuration: byId("releaseDuration"),
   comfortEqEnabled: byId("comfortEqEnabled")
@@ -30,6 +31,7 @@ function renderProfile() {
   controls.strength.value = profile.protectionStrength;
   controls.suddenSoundReductionPercent.value = profile.suddenSoundReductionPercent;
   controls.preserveSpeech.checked = profile.preserveSpeech;
+  controls.aggressiveAlarmBlocking.checked = profile.aggressiveAlarmBlocking;
   controls.detectionSensitivity.value = profile.detectionSensitivity;
   controls.maximumTonalReductionPercent.value = profile.maximumTonalReductionPercent;
   controls.minimumProtectedFrequency.value = profile.minimumProtectedFrequency;
@@ -48,6 +50,7 @@ function currentProfile() {
     protectionStrength: controls.strength.value,
     suddenSoundReductionPercent: controls.suddenSoundReductionPercent.value,
     preserveSpeech: controls.preserveSpeech.checked,
+    aggressiveAlarmBlocking: controls.aggressiveAlarmBlocking.checked,
     detectionSensitivity: controls.detectionSensitivity.value,
     maximumTonalReductionPercent: controls.maximumTonalReductionPercent.value,
     minimumProtectedFrequency: controls.minimumProtectedFrequency.value,
